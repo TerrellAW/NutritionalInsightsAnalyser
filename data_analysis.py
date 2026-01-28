@@ -22,4 +22,10 @@ df['Carbs_to_Fat'] = df['Carbs(g)'] / df['Fat(g)']
 sbn.barplot(x=avg_macros.index, y=avg_macros['Protein(g)'])
 plt.title('Average Protein by Diet Type')
 plt.ylabel('Average Protein (g)')
+
+# Top 5 protein recipes heatmap
+numeric_data = top_prot.select_dtypes(include='number')
+sbn.heatmap(numeric_data, annot=True)
+
+# Show diagrams
 plt.show()
