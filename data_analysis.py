@@ -19,7 +19,7 @@ df['Protein_to_Carbs'] = df['Protein(g)'] / df['Carbs(g)']
 df['Carbs_to_Fat'] = df['Carbs(g)'] / df['Fat(g)']
 
 # Define subplots
-fig, (bar, heat) = plt.subplots(1, 2)
+fig, (bar, heat, scat) = plt.subplots(1, 3, figsize=(15, 5))
 
 # Average macronutrients bar chart
 sbn.barplot(x=avg_macros.index, y=avg_macros['Protein(g)'], ax=bar)
@@ -29,6 +29,12 @@ plt.ylabel('Average Protein (g)')
 # Top 5 protein recipes heatmap
 numeric_data = top_prot.select_dtypes(include='number')
 sbn.heatmap(numeric_data, annot=True, ax=heat)
+
+# Scatter map for ratios
+sbn.scatterplot(data=df, x='Protein_to_Carbs', y='Carbs_to_Fat', ax=scat)
+
+# Prevent overlapping labels
+plt.tight_layout()
 
 # Show diagrams
 plt.show()
