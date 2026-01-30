@@ -18,14 +18,17 @@ top_prot = df.sort_values('Protein(g)', ascending=False).groupby('Diet_type').he
 df['Protein_to_Carbs'] = df['Protein(g)'] / df['Carbs(g)']
 df['Carbs_to_Fat'] = df['Carbs(g)'] / df['Fat(g)']
 
+# Define subplots
+fig, (bar, heat) = plt.subplots(1, 2)
+
 # Average macronutrients bar chart
-sbn.barplot(x=avg_macros.index, y=avg_macros['Protein(g)'])
+sbn.barplot(x=avg_macros.index, y=avg_macros['Protein(g)'], ax=bar)
 plt.title('Average Protein by Diet Type')
 plt.ylabel('Average Protein (g)')
 
 # Top 5 protein recipes heatmap
 numeric_data = top_prot.select_dtypes(include='number')
-sbn.heatmap(numeric_data, annot=True)
+sbn.heatmap(numeric_data, annot=True, ax=heat)
 
 # Show diagrams
 plt.show()
