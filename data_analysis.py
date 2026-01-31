@@ -36,5 +36,6 @@ sbn.scatterplot(data=df, x='Protein_to_Carbs', y='Carbs_to_Fat', ax=scat)
 # Prevent overlapping labels
 plt.tight_layout()
 
-# Show diagrams
-plt.show()
+# Save diagrams
+plt.savefig('out/plots.png')
+print("Plots saved")
