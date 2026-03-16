@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nutritional Insights Dashboard</title>
+    <!-- Tailwind CSS -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.0.0/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
+    <!-- Google Charts -->
+    <script
+      type="text/javascript"
+      src="https://www.gstatic.com/charts/loader.js"
+    ></script>
+  </head>
+  <body class="bg-gray-100">
+    <!-- Header -->
+    <header class="bg-blue-600 p-4 text-white shadow-lg">
+      <h1 class="text-3xl font-semibold">Nutritional Insights</h1>
+    </header>
+
+    <main class="container mx-auto p-6">
+      <!-- Metadata Bar -->
+      <div
+        class="bg-white p-4 shadow-lg rounded-lg mb-6 flex justify-center gap-8"
+      >
+        <div>
+          <span class="font-semibold">Total Recipes:</span>
+          <!-- RAHIL REPLACE THIS WITH dataset_summary total_recipes FROM JSON  -->
+          <span id="totalRecipes" class="text-blue-600">7,806</span>
+        </div>
+        <div>
+          <span class="font-semibold">Diet Types:</span>
+          <!-- RAHIL REPLACE THIS WITH dataset_summary diet_types FROM JSON  -->
+          <span id="dietTypes" class="text-blue-600">5</span>
+        </div>
+      </div>
+
+      <!-- Visualizations Grid -->
+      <h2 class="text-2xl font-semibold mb-4">Explore Nutritional Insights</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Bar Chart Card -->
+        <div class="bg-white p-4 shadow-lg rounded-lg">
+          <h3 class="font-semibold text-lg">Bar Chart</h3>
+          <p class="text-sm text-gray-600 mb-2">
+            Average macronutrient content by diet type.
+          </p>
+          <div id="barChart_div" style="width: 100%; height: 250px"></div>
+        </div>
+
+        <!-- Scatter Plot Card -->
+        <div class="bg-white p-4 shadow-lg rounded-lg">
+          <h3 class="font-semibold text-lg">Scatter Plot</h3>
+          <p class="text-sm text-gray-600 mb-2">
+            Nutrient relationships (e.g., protein vs carbs).
+          </p>
+          <div id="scatterPlot_div" style="width: 100%; height: 250px"></div>
+        </div>
+
+        <!-- Pie Chart Card -->
+        <div class="bg-white p-4 shadow-lg rounded-lg">
+          <h3 class="font-semibold text-lg">Pie Chart</h3>
+          <p class="text-sm text-gray-600 mb-2">
+            Recipe distribution by diet type.
+          </p>
+          <div id="pieChart_div" style="width: 100%; height: 250px"></div>
+        </div>
+      </div>
+
+      <!-- Filters Section -->
+      <section class="mb-8 mt-8">
+        <h2 class="text-2xl font-semibold mb-4">
+          Filters and Data Interaction
+        </h2>
+        <div class="flex flex-wrap gap-4">
+          <input
+            type="text"
+            id="searchInput"
+            placeholder="Search by Diet Type"
+            class="p-2 border rounded w-full sm:w-64"
+          />
+          <select id="dietFilter" class="p-2 border rounded w-full sm:w-48">
+            <option value="all">All Diet Types</option>
+            <option value="paleo">Paleo</option>
+            <option value="vegan">Vegan</option>
+            <option value="keto">Keto</option>
+            <option value="mediterranean">Mediterranean</option>
+            <option value="dash">Dash</option>
+          </select>
+          <button
+            id="applyFilters"
+            class="bg-blue-600 text-white py-2 px-6 rounded hover:bg-blue-700"
+          >
+            Apply Filters
+          </button>
+        </div>
+      </section>
+
+      <!-- API Data Interactions Buttons -->
+      <section class="mb-8">
+        <h2 class="text-2xl font-semibold mb-4">Data Source</h2>
+        <div class="flex flex-wrap gap-4">
+          <button
+            id="loadMockData"
+            class="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700"
+          >
+            Load Mock Data
+          </button>
+          <button
+            id="refreshData"
+            class="bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700"
+          >
+            Refresh from API
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-blue-600 p-4 text-white text-center mt-10">
+      <p>&copy; 2026 Nutritional Insights. All Rights Reserved.</p>
+    </footer>
+
+    <script>
+      // Load Google Charts
+      google.charts.load("current", { packages: ["corechart", "bar"] });
+
+      // RAHIL IT'S USING MOCK DATA COPIED FROM simulated_nosql.json FOR NOW, REPLACE WITH REAL API CALL BELLOW WHEN BACKEND IS READY
+      const mockData = {
+        average_macros_per_diet: [
+          {
+            Diet_type: "dash",
+            "Protein(g)": 69.282,
+            "Carbs(g)": 160.536,
+            "Fat(g)": 101.151,
+          },
+          {
+            Diet_type: "keto",
+            "Protein(g)": 101.267,
+            "Carbs(g)": 57.971,
+            "Fat(g)": 153.116,
+          },
+          {
+            Diet_type: "mediterranean",
+            "Protein(g)": 101.112,
+            "Carbs(g)": 152.906,
+            "Fat(g)": 101.416,
+          },
+          {
+            Diet_type: "paleo",
+            "Protein(g)": 88.675,
+            "Carbs(g)": 129.552,
+            "Fat(g)": 135.669,
+          },
+          {
+            Diet_type: "vegan",
+            "Protein(g)": 56.157,
+            "Carbs(g)": 254.004,
+            "Fat(g)": 103.3,
+          },
+        ],
+        dataset_summary: {
+          total_recipes: 7806,
+          diet_types: ["paleo", "vegan", "keto", "mediterranean", "dash"],
+        },
+      };
+
+      // Calculate recipe counts. RAHIL USING MOCK DATA REPLACE!
+      // recipeCounts used in for loop on line 270
+      const recipeCounts = {
+        paleo: 3420,
+        vegan: 2450,
+        keto: 1250,
+        mediterranean: 486,
+        dash: 200,
+      };
+
+      // Load the charts
+      google.charts.setOnLoadCallback(drawCharts);
+
+      function drawCharts() {
+        drawBarChart();
+        drawScatterPlot();
+        drawPieChart();
+      }
+
+      // BAR CHART - Average Macronutrients by Diet Type
+      function drawBarChart() {
+        // Create data table
+        var data = new google.visualization.DataTable();
+        data.addColumn("string", "Diet Type");
+        data.addColumn("number", "Protein (g)");
+        data.addColumn("number", "Carbs (g)");
+        data.addColumn("number", "Fat (g)");
+
+        // Add rows from mockData
+        mockData.average_macros_per_diet.forEach((item) => {
+          data.addRow([
+            item.Diet_type,
+            item["Protein(g)"],
+            item["Carbs(g)"],
+            item["Fat(g)"],
+          ]);
+        });
+
+        // Chart options
+        var options = {
+          title: "Average Macronutrients by Diet Type",
+          chartArea: { width: "70%", height: "70%" },
+          colors: ["#4285F4", "#DB4437", "#F4B400"],
+          hAxis: { title: "Diet Type" },
+          vAxis: { title: "Grams (g)", minValue: 0 },
+          legend: { position: "top" },
+          animation: { startup: true, duration: 1000, easing: "out" },
+        };
+
+        // Draw the chart
+        var chart = new google.visualization.ColumnChart(
+          document.getElementById("barChart_div"),
+        );
+        chart.draw(data, options);
+      }
+
+      // SCATTER PLOT - Protein vs Carbs Relationship
+      function drawScatterPlot() {
+        // Create data table
+        var data = new google.visualization.DataTable();
+        data.addColumn("number", "Protein (g)");
+        data.addColumn("number", "Carbs (g)");
+        data.addColumn({ type: "string", role: "tooltip" });
+
+        // Add rows from mockData
+        mockData.average_macros_per_diet.forEach((item) => {
+          data.addRow([
+            item["Protein(g)"],
+            item["Carbs(g)"],
+            `${item.Diet_type}: ${item["Protein(g)"]}g protein, ${item["Carbs(g)"]}g carbs`,
+          ]);
+        });
+
+        // Chart options
+        var options = {
+          title: "Protein vs Carbs by Diet Type",
+          chartArea: { width: "70%", height: "70%" },
+          colors: ["#4285F4"],
+          hAxis: { title: "Protein (g)", minValue: 0 },
+          vAxis: { title: "Carbs (g)", minValue: 0 },
+          legend: { position: "none" },
+          pointSize: 10,
+          tooltip: { isHtml: true },
+          animation: { startup: true, duration: 1000, easing: "out" },
+        };
+
+        // Draw the chart
+        var chart = new google.visualization.ScatterChart(
+          document.getElementById("scatterPlot_div"),
+        );
+        chart.draw(data, options);
+      }
+
+      // PIE CHART - Recipe Distribution by Diet Type
+      function drawPieChart() {
+        // Create data table
+        var data = new google.visualization.DataTable();
+        data.addColumn("string", "Diet Type");
+        data.addColumn("number", "Number of Recipes");
+
+        // Add rows from recipeCounts
+        for (let [diet, count] of Object.entries(recipeCounts)) {
+          data.addRow([diet, count]);
+        }
+
+        // Chart options
+        var options = {
+          title: "Recipe Distribution by Diet Type",
+          chartArea: { width: "80%", height: "70%" },
+          colors: ["#4285F4", "#DB4437", "#F4B400", "#0F9D58", "#AB47BC"],
+          pieHole: 0.3,
+          legend: { position: "labeled" },
+          tooltip: { trigger: "selection" },
+          animation: { startup: true, duration: 1000, easing: "out" },
+        };
+
+        // Draw the chart
+        var chart = new google.visualization.PieChart(
+          document.getElementById("pieChart_div"),
+        );
+        chart.draw(data, options);
+      }
+
+      // Add click handlers for buttons (REPLACE WITH REAL FUNCTIONALITY currently just shows alerts)
+      document
+        .getElementById("loadMockData")
+        .addEventListener("click", function () {
+          drawCharts();
+          alert("Data loaded successfully!");
+        });
+
+      // Refresh from API button (REPLACE WITH API CALL currently just shows alert)
+      document
+        .getElementById("refreshData")
+        .addEventListener("click", function () {
+          alert("Refreshed data from API!");
+          // RAHIL LATER FETCH FROM AZURE FUNCTION!
+          // fetch('AZURE_FUNCTION_URL')
+          //     .then(response => response.json())
+          //     .then(data => {
+          //         mockData = data;
+          //         drawCharts();
+          //     });
+        });
+
+      // Apply Filters button (REPLACE WITH REAL FILTERING LOGIC doesn't actually filter charts yet, just shows alert)
+      document
+        .getElementById("applyFilters")
+        .addEventListener("click", function () {
+          const searchTerm = document
+            .getElementById("searchInput")
+            .value.toLowerCase();
+          const dietFilter = document.getElementById("dietFilter").value;
+
+          if (dietFilter !== "all" || searchTerm) {
+            alert(
+              `Filter applied: Diet=${dietFilter}, Search="${searchTerm}"\n(This will filter charts when connected to real data)`,
+            );
+          } else {
+            drawCharts();
+          }
+        });
+    </script>
+  </body>
+</html>
