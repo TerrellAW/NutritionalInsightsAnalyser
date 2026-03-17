@@ -4,17 +4,20 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Nutritional Insights Dashboard</title>
+
     <!-- Tailwind CSS -->
     <link
       href="https://cdn.jsdelivr.net/npm/tailwindcss@2.0.0/dist/tailwind.min.css"
       rel="stylesheet"
     />
+
     <!-- Google Charts -->
     <script
       type="text/javascript"
       src="https://www.gstatic.com/charts/loader.js"
     ></script>
   </head>
+
   <body class="bg-gray-100">
     <!-- Header -->
     <header class="bg-blue-600 p-4 text-white shadow-lg">
@@ -24,19 +27,31 @@
     <main class="container mx-auto p-6">
       <!-- Metadata Bar -->
       <div
-        class="bg-white p-4 shadow-lg rounded-lg mb-6 flex justify-center gap-8"
+        class="bg-white p-4 shadow-lg rounded-lg mb-6 flex flex-wrap justify-center gap-8"
       >
         <div>
           <span class="font-semibold">Total Recipes:</span>
-          <!-- RAHIL REPLACE THIS WITH dataset_summary total_recipes FROM JSON  -->
           <span id="totalRecipes" class="text-blue-600">7,806</span>
         </div>
         <div>
           <span class="font-semibold">Diet Types:</span>
-          <!-- RAHIL REPLACE THIS WITH dataset_summary diet_types FROM JSON  -->
           <span id="dietTypes" class="text-blue-600">5</span>
         </div>
+        <div>
+          <span class="font-semibold">Record Count:</span>
+          <span id="recordCount" class="text-blue-600">7,806</span>
+        </div>
+        <div>
+          <span class="font-semibold">Execution Time:</span>
+          <span id="executionTime" class="text-blue-600">--</span>
+        </div>
       </div>
+
+      <!-- Status Message -->
+      <div
+        id="statusMessage"
+        class="hidden mb-6 p-4 rounded-lg shadow text-sm font-medium"
+      ></div>
 
       <!-- Visualizations Grid -->
       <h2 class="text-2xl font-semibold mb-4">Explore Nutritional Insights</h2>
@@ -105,7 +120,7 @@
         </div>
       </section>
 
-      <!-- API Data Interactions Buttons -->
+      <!-- API Data Interaction -->
       <section class="mb-8">
         <h2 class="text-2xl font-semibold mb-4">Data Source</h2>
         <div class="flex flex-wrap gap-4">
@@ -125,27 +140,11 @@
     </footer>
 
     <script>
-      // NOTES FOR RAHIL:
-      // TO REPLACE MOCK DATA WITH REAL API:
-      // 1. The Azure Function should return JSON matching this structure:
-      //    {
-      //      average_macros_per_diet: [
-      //        { Diet_type: "diet name", "Protein(g)": number, "Carbs(g)": number, "Fat(g)": number }
-      //      ],
-      //      dataset_summary: {
-      //        total_recipes: number,
-      //        diet_types: ["array", "of", "diet", "types"]
-      //      }
-      //    }
-      // 2. Also need recipe counts (recipeCounts) for pie chart (can be calculated from dataset)
-      // 3. Replace the fetch URL in refreshData button with your Azure Function URL
-      // 4. Make sure CORS is enabled on your Function App to allow requests from frontend
-
       // Load Google Charts
       google.charts.load("current", { packages: ["corechart", "bar"] });
 
-      // RAHIL IT'S USING MOCK DATA COPIED FROM simulated_nosql.json FOR NOW, REPLACE WITH REAL API CALL BELLOW WHEN BACKEND IS READY
-      const mockData = {
+      // Mock data for initial page load
+      let mockData = {
         average_macros_per_diet: [
           {
             Diet_type: "dash",
@@ -182,10 +181,12 @@
           total_recipes: 7806,
           diet_types: ["paleo", "vegan", "keto", "mediterranean", "dash"],
         },
+        execution_time_ms: null,
+        record_count: 7806,
       };
 
-      // Recipe counts for pie chart. RAHIL USING MOCK DATA!
-      const recipeCounts = {
+      // Mock recipe counts for initial page load
+      let recipeCounts = {
         paleo: 3420,
         vegan: 2450,
         keto: 1250,
@@ -193,12 +194,27 @@
         dash: 200,
       };
 
-      // Store original unfiltered data
       let currentFilter = "all";
       let currentSearchTerm = "";
 
-      // Load the charts
       google.charts.setOnLoadCallback(drawCharts);
+
+      function showStatus(message, type = "info") {
+        const statusDiv = document.getElementById("statusMessage");
+        statusDiv.textContent = message;
+        statusDiv.className =
+          "mb-6 p-4 rounded-lg shadow text-sm font-medium";
+
+        if (type === "success") {
+          statusDiv.classList.add("bg-green-100", "text-green-800");
+        } else if (type === "error") {
+          statusDiv.classList.add("bg-red-100", "text-red-800");
+        } else {
+          statusDiv.classList.add("bg-blue-100", "text-blue-800");
+        }
+
+        statusDiv.classList.remove("hidden");
+      }
 
       function drawCharts() {
         drawBarChart();
@@ -206,10 +222,9 @@
         drawPieChart();
       }
 
-      // FILTER FUNCTION - Returns filtered data based on selected diet
       function getFilteredData() {
         if (currentFilter === "all" && !currentSearchTerm) {
-          return mockData.average_macros_per_diet; // Return all data
+          return mockData.average_macros_per_diet;
         }
 
         return mockData.average_macros_per_diet.filter((item) => {
@@ -222,10 +237,8 @@
         });
       }
 
-      // BAR CHART - Average Macronutrients by Diet Type
       function drawBarChart() {
-        // Create data table
-        var data = new google.visualization.DataTable();
+        const data = new google.visualization.DataTable();
         data.addColumn("string", "Diet Type");
         data.addColumn("number", "Protein (g)");
         data.addColumn("number", "Carbs (g)");
@@ -234,13 +247,11 @@
         const filteredData = getFilteredData();
 
         if (filteredData.length === 0) {
-          // Show empty chart with message
           document.getElementById("barChart_div").innerHTML =
             '<p class="text-center text-gray-500 mt-10">No data matches filters</p>';
           return;
         }
 
-        // Add row
         filteredData.forEach((item) => {
           data.addRow([
             item.Diet_type,
@@ -250,8 +261,7 @@
           ]);
         });
 
-        // Chart options
-        var options = {
+        const options = {
           title:
             currentFilter === "all"
               ? "Average Macronutrients by Diet Type"
@@ -264,17 +274,14 @@
           animation: { startup: true, duration: 1000, easing: "out" },
         };
 
-        // Draw the chart
-        var chart = new google.visualization.ColumnChart(
-          document.getElementById("barChart_div"),
+        const chart = new google.visualization.ColumnChart(
+          document.getElementById("barChart_div")
         );
         chart.draw(data, options);
       }
 
-      // SCATTER PLOT - Protein vs Carbs Relationship
       function drawScatterPlot() {
-        // Create data table
-        var data = new google.visualization.DataTable();
+        const data = new google.visualization.DataTable();
         data.addColumn("number", "Protein (g)");
         data.addColumn("number", "Carbs (g)");
         data.addColumn({ type: "string", role: "tooltip" });
@@ -287,7 +294,6 @@
           return;
         }
 
-        // Add row
         filteredData.forEach((item) => {
           data.addRow([
             item["Protein(g)"],
@@ -296,8 +302,7 @@
           ]);
         });
 
-        // Chart options
-        var options = {
+        const options = {
           title:
             currentFilter === "all"
               ? "Protein vs Carbs by Diet Type"
@@ -312,43 +317,34 @@
           animation: { startup: true, duration: 1000, easing: "out" },
         };
 
-        // Draw the chart
-        var chart = new google.visualization.ScatterChart(
-          document.getElementById("scatterPlot_div"),
+        const chart = new google.visualization.ScatterChart(
+          document.getElementById("scatterPlot_div")
         );
         chart.draw(data, options);
       }
 
-      // PIE CHART - Recipe Distribution by Diet Type
       function drawPieChart() {
-        // Create data table
-        var data = new google.visualization.DataTable();
+        const data = new google.visualization.DataTable();
         data.addColumn("string", "Diet Type");
         data.addColumn("number", "Number of Recipes");
 
-        // For pie chart, we need to decide how to show filtered data
         if (currentFilter !== "all" || currentSearchTerm) {
-          // If filtering by one diet, show its distribution or a message
           const filteredData = getFilteredData();
           if (filteredData.length === 1) {
-            // Show only that diet's recipe count
             const diet = filteredData[0].Diet_type;
-            data.addRow([diet, recipeCounts[diet]]);
+            data.addRow([diet, recipeCounts[diet] || 0]);
           } else {
-            // Show all recipes
-            for (let [diet, count] of Object.entries(recipeCounts)) {
+            for (const [diet, count] of Object.entries(recipeCounts)) {
               data.addRow([diet, count]);
             }
           }
         } else {
-          // Show all recipe counts
-          for (let [diet, count] of Object.entries(recipeCounts)) {
+          for (const [diet, count] of Object.entries(recipeCounts)) {
             data.addRow([diet, count]);
           }
         }
 
-        // Chart options
-        var options = {
+        const options = {
           title:
             currentFilter === "all"
               ? "Recipe Distribution by Diet Type"
@@ -361,28 +357,34 @@
           animation: { startup: true, duration: 1000, easing: "out" },
         };
 
-        // Draw the chart
-        var chart = new google.visualization.PieChart(
-          document.getElementById("pieChart_div"),
+        const chart = new google.visualization.PieChart(
+          document.getElementById("pieChart_div")
         );
         chart.draw(data, options);
       }
 
-      // UPDATE METADATA FUNCTION - Update the summary numbers
       function updateMetadata() {
         const filteredData = getFilteredData();
+
         document.getElementById("totalRecipes").textContent =
           currentFilter === "all" && !currentSearchTerm
-            ? mockData.dataset_summary.total_recipes.toLocaleString()
+            ? Number(mockData.dataset_summary.total_recipes || 0).toLocaleString()
             : filteredData.length.toString();
 
         document.getElementById("dietTypes").textContent =
           currentFilter === "all" && !currentSearchTerm
-            ? mockData.dataset_summary.diet_types.length
+            ? (mockData.dataset_summary.diet_types || []).length
             : new Set(filteredData.map((d) => d.Diet_type)).size;
+
+        document.getElementById("recordCount").textContent =
+          Number(
+            mockData.record_count || mockData.dataset_summary.total_recipes || 0
+          ).toLocaleString();
+
+        document.getElementById("executionTime").textContent =
+          mockData.execution_time_ms ? `${mockData.execution_time_ms} ms` : "--";
       }
 
-      // APPLY FILTERS
       document
         .getElementById("applyFilters")
         .addEventListener("click", function () {
@@ -391,12 +393,10 @@
             .value.toLowerCase();
           currentFilter = document.getElementById("dietFilter").value;
 
-          // Redraw charts with filtered data
           drawCharts();
           updateMetadata();
         });
 
-      // RESET FILTERS
       function resetFilters() {
         document.getElementById("searchInput").value = "";
         document.getElementById("dietFilter").value = "all";
@@ -404,48 +404,58 @@
         currentFilter = "all";
         drawCharts();
         updateMetadata();
+        showStatus("Filters reset.", "info");
       }
 
-      // REFRESH FROM API (RAHIL IMPLEMENT THIS TO FETCH REAL DATA FROM AZURE FUNCTION)
       document
         .getElementById("refreshData")
-        .addEventListener("click", function () {
-          // RAHIL REPLACE THIS URL WITH AZURE FUNCTION ENDPOINT
-          const API_URL = "";
+        .addEventListener("click", async function () {
+          const API_URL = "PASTE_YOUR_AZURE_FUNCTION_URL_HERE";
 
-          // RAHIL UNCOMMENT THIS BLOCK AND IMPLEMENT THE FETCH CALL TO AZURE FUNCTION WHEN BACKEND IS READY
-          /*
-            fetch(API_URL)
-            .then(response => {
-                if (!response.ok) {
-                throw new Error('Network response was not ok');
-                }
-                return response.json();
-            })
-            .then(data => {
-                // Update mockData with real data from API
-                mockData = data;
-                
-                // Recalculate recipe counts from the real data
-                
-                // Refresh charts with new data
-                drawCharts();
-                updateMetadata();
-                alert('Data refreshed from Azure Function!');
-            })
-            .catch(error => {
-                console.error('Error fetching data:', error);
-                alert('Failed to fetch data from Azure Function. Check console for details.');
-            });
-        */
+          try {
+            showStatus("Refreshing dashboard from Azure Function...", "info");
 
-          // Temporary alert - REMOVE THIS when you implement the fetch above
-          alert(
-            "Replace this with actual Azure Function call when backend is ready",
-          );
+            const response = await fetch(API_URL);
+
+            if (!response.ok) {
+              throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            mockData = {
+              average_macros_per_diet: data.average_macros_per_diet || [],
+              dataset_summary: data.dataset_summary || {
+                total_recipes: 0,
+                diet_types: [],
+              },
+              execution_time_ms: data.execution_time_ms || null,
+              record_count: data.record_count || 0,
+            };
+
+            recipeCounts = data.recipe_counts || {};
+
+            currentFilter = "all";
+            currentSearchTerm = "";
+            document.getElementById("searchInput").value = "";
+            document.getElementById("dietFilter").value = "all";
+
+            drawCharts();
+            updateMetadata();
+
+            showStatus(
+              "Dashboard refreshed successfully from Azure Function.",
+              "success"
+            );
+          } catch (error) {
+            console.error("Error fetching data:", error);
+            showStatus(
+              "Failed to fetch data from Azure Function. Check console for details.",
+              "error"
+            );
+          }
         });
 
-      // Initialize metadata on page load
       updateMetadata();
     </script>
   </body>
