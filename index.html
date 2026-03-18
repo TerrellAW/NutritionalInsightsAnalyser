@@ -134,13 +134,11 @@
       </section>
     </main>
 
-    <!-- Footer -->
     <footer class="bg-blue-600 p-4 text-white text-center mt-10">
       <p>&copy; 2026 Nutritional Insights. All Rights Reserved.</p>
     </footer>
 
     <script>
-      // Load Google Charts
       google.charts.load("current", { packages: ["corechart", "bar"] });
 
       // Mock data for initial page load
@@ -252,12 +250,14 @@
           return;
         }
 
+        document.getElementById("barChart_div").innerHTML = "";
+
         filteredData.forEach((item) => {
           data.addRow([
             item.Diet_type,
-            item["Protein(g)"],
-            item["Carbs(g)"],
-            item["Fat(g)"],
+            Number(item["Protein(g)"]) || 0,
+            Number(item["Carbs(g)"]) || 0,
+            Number(item["Fat(g)"]) || 0,
           ]);
         });
 
@@ -294,11 +294,13 @@
           return;
         }
 
+        document.getElementById("scatterPlot_div").innerHTML = "";
+
         filteredData.forEach((item) => {
           data.addRow([
-            item["Protein(g)"],
-            item["Carbs(g)"],
-            `${item.Diet_type}: ${item["Protein(g)"]}g protein, ${item["Carbs(g)"]}g carbs`,
+            Number(item["Protein(g)"]) || 0,
+            Number(item["Carbs(g)"]) || 0,
+            `${item.Diet_type}: ${Number(item["Protein(g)"]) || 0}g protein, ${Number(item["Carbs(g)"]) || 0}g carbs`,
           ]);
         });
 
@@ -332,15 +334,15 @@
           const filteredData = getFilteredData();
           if (filteredData.length === 1) {
             const diet = filteredData[0].Diet_type;
-            data.addRow([diet, recipeCounts[diet] || 0]);
+            data.addRow([diet, Number(recipeCounts[diet]) || 0]);
           } else {
             for (const [diet, count] of Object.entries(recipeCounts)) {
-              data.addRow([diet, count]);
+              data.addRow([diet, Number(count) || 0]);
             }
           }
         } else {
           for (const [diet, count] of Object.entries(recipeCounts)) {
-            data.addRow([diet, count]);
+            data.addRow([diet, Number(count) || 0]);
           }
         }
 
@@ -356,6 +358,8 @@
           tooltip: { trigger: "selection" },
           animation: { startup: true, duration: 1000, easing: "out" },
         };
+
+        document.getElementById("pieChart_div").innerHTML = "";
 
         const chart = new google.visualization.PieChart(
           document.getElementById("pieChart_div")
@@ -390,11 +394,13 @@
         .addEventListener("click", function () {
           currentSearchTerm = document
             .getElementById("searchInput")
-            .value.toLowerCase();
+            .value.toLowerCase()
+            .trim();
           currentFilter = document.getElementById("dietFilter").value;
 
           drawCharts();
           updateMetadata();
+          showStatus("Filter applied.", "info");
         });
 
       function resetFilters() {
@@ -410,30 +416,72 @@
       document
         .getElementById("refreshData")
         .addEventListener("click", async function () {
-          const API_URL = "PASTE_YOUR_AZURE_FUNCTION_URL_HERE";
+          const CSV_URL = "https://projacct.blob.core.windows.net/data-blob/data.csv";
 
           try {
-            showStatus("Refreshing dashboard from Azure Function...", "info");
+            showStatus("Loading data from Azure Blob Storage...", "info");
 
-            const response = await fetch(API_URL);
+            const startTime = performance.now();
 
+            const response = await fetch(CSV_URL);
             if (!response.ok) {
               throw new Error(`HTTP error! Status: ${response.status}`);
             }
 
-            const data = await response.json();
+            const text = await response.text();
+            const lines = text.trim().split(/\r?\n/);
+
+            if (lines.length < 2) {
+              throw new Error("CSV file is empty or missing data rows.");
+            }
+
+            const rows = lines.slice(1);
+
+            const diets = {};
+            const recipeCountsTemp = {};
+
+            rows.forEach((row) => {
+              const cols = row.split(",");
+
+              const diet = (cols[0] || "").trim().toLowerCase();
+              const protein = parseFloat(cols[1]) || 0;
+              const carbs = parseFloat(cols[2]) || 0;
+              const fat = parseFloat(cols[3]) || 0;
+
+              if (!diet) return;
+
+              if (!diets[diet]) {
+                diets[diet] = { protein: 0, carbs: 0, fat: 0, count: 0 };
+              }
+
+              diets[diet].protein += protein;
+              diets[diet].carbs += carbs;
+              diets[diet].fat += fat;
+              diets[diet].count++;
+
+              recipeCountsTemp[diet] = (recipeCountsTemp[diet] || 0) + 1;
+            });
+
+            const avgData = Object.keys(diets).map((diet) => ({
+              Diet_type: diet,
+              "Protein(g)": diets[diet].protein / diets[diet].count,
+              "Carbs(g)": diets[diet].carbs / diets[diet].count,
+              "Fat(g)": diets[diet].fat / diets[diet].count,
+            }));
+
+            const endTime = performance.now();
 
             mockData = {
-              average_macros_per_diet: data.average_macros_per_diet || [],
-              dataset_summary: data.dataset_summary || {
-                total_recipes: 0,
-                diet_types: [],
+              average_macros_per_diet: avgData,
+              dataset_summary: {
+                total_recipes: rows.length,
+                diet_types: Object.keys(diets),
               },
-              execution_time_ms: data.execution_time_ms || null,
-              record_count: data.record_count || 0,
+              record_count: rows.length,
+              execution_time_ms: Math.round(endTime - startTime),
             };
 
-            recipeCounts = data.recipe_counts || {};
+            recipeCounts = recipeCountsTemp;
 
             currentFilter = "all";
             currentSearchTerm = "";
@@ -443,14 +491,11 @@
             drawCharts();
             updateMetadata();
 
-            showStatus(
-              "Dashboard refreshed successfully from Azure Function.",
-              "success"
-            );
+            showStatus("Data loaded from Azure Blob Storage successfully.", "success");
           } catch (error) {
             console.error("Error fetching data:", error);
             showStatus(
-              "Failed to fetch data from Azure Function. Check console for details.",
+              "Failed to load data from Azure Blob Storage. Check console for details.",
               "error"
             );
           }
