@@ -5,13 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Nutritional Insights Dashboard</title>
 
-    <!-- Tailwind CSS -->
     <link
       href="https://cdn.jsdelivr.net/npm/tailwindcss@2.0.0/dist/tailwind.min.css"
       rel="stylesheet"
     />
 
-    <!-- Google Charts -->
     <script
       type="text/javascript"
       src="https://www.gstatic.com/charts/loader.js"
@@ -19,7 +17,6 @@
   </head>
 
   <body class="bg-gray-100">
-    <!-- Header -->
     <header class="bg-blue-600 p-4 text-white shadow-lg">
       <h1 class="text-3xl font-semibold">Nutritional Insights</h1>
     </header>
@@ -141,7 +138,7 @@
     <script>
       google.charts.load("current", { packages: ["corechart", "bar"] });
 
-      // Mock data for initial page load
+      // Initial mock data for page load
       let mockData = {
         average_macros_per_diet: [
           {
@@ -183,7 +180,6 @@
         record_count: 7806,
       };
 
-      // Mock recipe counts for initial page load
       let recipeCounts = {
         paleo: 3420,
         vegan: 2450,
@@ -222,10 +218,10 @@
 
       function getFilteredData() {
         if (currentFilter === "all" && !currentSearchTerm) {
-          return mockData.average_macros_per_diet;
+          return mockData.average_macros_per_diet || [];
         }
 
-        return mockData.average_macros_per_diet.filter((item) => {
+        return (mockData.average_macros_per_diet || []).filter((item) => {
           const matchesDiet =
             currentFilter === "all" || item.Diet_type === currentFilter;
           const matchesSearch =
@@ -372,17 +368,19 @@
 
         document.getElementById("totalRecipes").textContent =
           currentFilter === "all" && !currentSearchTerm
-            ? Number(mockData.dataset_summary.total_recipes || 0).toLocaleString()
+            ? Number(mockData.dataset_summary?.total_recipes || 0).toLocaleString()
             : filteredData.length.toString();
 
         document.getElementById("dietTypes").textContent =
           currentFilter === "all" && !currentSearchTerm
-            ? (mockData.dataset_summary.diet_types || []).length
+            ? (mockData.dataset_summary?.diet_types || []).length
             : new Set(filteredData.map((d) => d.Diet_type)).size;
 
         document.getElementById("recordCount").textContent =
           Number(
-            mockData.record_count || mockData.dataset_summary.total_recipes || 0
+            mockData.record_count ||
+            mockData.dataset_summary?.total_recipes ||
+            0
           ).toLocaleString();
 
         document.getElementById("executionTime").textContent =
@@ -416,72 +414,31 @@
       document
         .getElementById("refreshData")
         .addEventListener("click", async function () {
-          const CSV_URL = "data.csv";
+          const API_URL =
+            "https://nutritional-backend-api-gubrc8f3dkdedyaa.canadacentral-01.azurewebsites.net/api/get_nutrition_data";
 
           try {
-            showStatus("Loading data from Azure Blob Storage...", "info");
+            showStatus("Refreshing dashboard from Azure Function...", "info");
 
-            const startTime = performance.now();
+            const response = await fetch(API_URL);
 
-            const response = await fetch(CSV_URL);
             if (!response.ok) {
               throw new Error(`HTTP error! Status: ${response.status}`);
             }
 
-            const text = await response.text();
-            const lines = text.trim().split(/\r?\n/);
-
-            if (lines.length < 2) {
-              throw new Error("CSV file is empty or missing data rows.");
-            }
-
-            const rows = lines.slice(1);
-
-            const diets = {};
-            const recipeCountsTemp = {};
-
-            rows.forEach((row) => {
-              const cols = row.split(",");
-
-              const diet = (cols[0] || "").trim().toLowerCase();
-              const protein = parseFloat(cols[1]) || 0;
-              const carbs = parseFloat(cols[2]) || 0;
-              const fat = parseFloat(cols[3]) || 0;
-
-              if (!diet) return;
-
-              if (!diets[diet]) {
-                diets[diet] = { protein: 0, carbs: 0, fat: 0, count: 0 };
-              }
-
-              diets[diet].protein += protein;
-              diets[diet].carbs += carbs;
-              diets[diet].fat += fat;
-              diets[diet].count++;
-
-              recipeCountsTemp[diet] = (recipeCountsTemp[diet] || 0) + 1;
-            });
-
-            const avgData = Object.keys(diets).map((diet) => ({
-              Diet_type: diet,
-              "Protein(g)": diets[diet].protein / diets[diet].count,
-              "Carbs(g)": diets[diet].carbs / diets[diet].count,
-              "Fat(g)": diets[diet].fat / diets[diet].count,
-            }));
-
-            const endTime = performance.now();
+            const data = await response.json();
 
             mockData = {
-              average_macros_per_diet: avgData,
-              dataset_summary: {
-                total_recipes: rows.length,
-                diet_types: Object.keys(diets),
+              average_macros_per_diet: data.average_macros_per_diet || [],
+              dataset_summary: data.dataset_summary || {
+                total_recipes: 0,
+                diet_types: [],
               },
-              record_count: rows.length,
-              execution_time_ms: Math.round(endTime - startTime),
+              execution_time_ms: data.execution_time_ms || null,
+              record_count: data.record_count || 0,
             };
 
-            recipeCounts = recipeCountsTemp;
+            recipeCounts = data.recipe_counts || {};
 
             currentFilter = "all";
             currentSearchTerm = "";
@@ -491,11 +448,14 @@
             drawCharts();
             updateMetadata();
 
-            showStatus("Data loaded from Azure Blob Storage successfully.", "success");
-          } catch (error) {
-            console.error("Error fetching data:", error);
             showStatus(
-              "Failed to load data from Azure Blob Storage. Check console for details.",
+              "Data loaded from Azure Function successfully.",
+              "success"
+            );
+          } catch (error) {
+            console.error("Error fetching Azure Function data:", error);
+            showStatus(
+              "Failed to load data from Azure Function. Check console for details.",
               "error"
             );
           }
